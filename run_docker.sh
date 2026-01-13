@@ -26,6 +26,21 @@ if [ "$CI_ARG_LOWER" != "y" ] && [ "$CI_ARG_LOWER" != "yes" ]; then
 	# remove the forgejo-runner service block from docker-compose.yml
 	awk 'BEGIN{skip=0} /^  forgejo-runner:/{skip=1} /^volumes:/{if(skip){skip=0}} {if(!skip) print}' docker-compose.yml > docker-compose.tmp && mv docker-compose.tmp docker-compose.yml
 	echo "Runner service removed from docker-compose.yml"
+	# remove trailing top-level volumes: block (runner-data) if present
+	awk 'BEGIN{skip=0} /^volumes:$/ {skip=1; next} { if(skip){ if($0 ~ /^[^[:space:]]/){ skip=0; print } } else print }' docker-compose.yml > docker-compose.tmp && mv docker-compose.tmp docker-compose.yml || true
+	# remove local runner-data dir if created
+	if [ -d "runner-data" ]; then
+		rm -rf runner-data
+		echo "Removed local runner-data directory"
+	fi
+	# remove any dangling docker volume named runner-data
+	if command -v docker >/dev/null 2>&1; then
+		VOL_TO_RM=$(docker volume ls -q | grep 'runner-data' || true)
+		if [ -n "$VOL_TO_RM" ]; then
+			echo "$VOL_TO_RM" | xargs -r docker volume rm || true
+			echo "Removed docker volume(s): $VOL_TO_RM"
+		fi
+	fi
 	RUNNER_WANTED=0
 else
 	RUNNER_WANTED=1
