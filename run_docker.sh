@@ -3,55 +3,30 @@ cd .. && mkdir -p forgejo && cd forgejo
 
 wget https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/docker-compose.yml
 
-# Allow port override via arg or env var
-PORT_ARG="$1"
-if [ -n "$PORT_ARG" ]; then
-	PORT="$PORT_ARG"
-fi
-PORT="${PORT:-3000}"
-if ! echo "$PORT" | grep -Eq '^[0-9]+$'; then
-	PORT=3000
-fi
-if [ "$PORT" != "3000" ]; then
-	sed -i -E "s/3000:3000/${PORT}:3000/g" docker-compose.yml || true
-	echo "Host HTTP port set to: $PORT"
+# Port Configuration
+port="${1:-3000}"
+echo "$port" | grep -Eq '^[0-9]+$' || port=3000
+
+if [ "$port" != "3000" ]; then
+	sed -i -E "s/3000:3000/${port}:3000/g" docker-compose.yml
+	echo "Port set to: $port"
 fi
 
-# CI/Actions choice: second arg (y/n)
-CI_ARG="$2"
-CI_ARG="${CI_ARG:-n}"
-CI_ARG_LOWER=$(echo "$CI_ARG" | tr '[:upper:]' '[:lower:]')
-if [ "$CI_ARG_LOWER" != "y" ] && [ "$CI_ARG_LOWER" != "yes" ]; then
-		# remove the forgejo-runner service block from docker-compose.yml
-		awk 'BEGIN{skip=0} /^[[:space:]]*forgejo-runner:/{skip=1} /^[^[:space:]]/ && skip==1{skip=0} { if(!skip) print }' docker-compose.yml > docker-compose.tmp && mv docker-compose.tmp docker-compose.yml || true
-		echo "Runner service removed from docker-compose.yml"
-		# remove runner-data volume entry and the "volumes:" header if it's the only entry
-		awk '{
-		 if($0 ~ /^volumes:$/){
-		   vol_line = $0
-		   if(getline){
-		     if($0 ~ /^[[:space:]]*runner-data:$/){ next }
-		     else{ print vol_line; print $0; next }
-		   } else { next }
-		 }
-		 print
-		}' docker-compose.yml > docker-compose.tmp && mv docker-compose.tmp docker-compose.yml || true
-	# remove local runner-data dir if created
-	if [ -d "runner-data" ]; then
-		rm -rf runner-data
-		echo "Removed local runner-data directory"
-	fi
-	# remove any dangling docker volume named runner-data
-	if command -v docker >/dev/null 2>&1; then
-		VOL_TO_RM=$(docker volume ls -q | grep 'runner-data' || true)
-		if [ -n "$VOL_TO_RM" ]; then
-			echo "$VOL_TO_RM" | xargs -r docker volume rm || true
-			echo "Removed docker volume(s): $VOL_TO_RM"
-		fi
-	fi
-	RUNNER_WANTED=0
-else
-	RUNNER_WANTED=1
+# CI/Runner selection
+ci="${2:-n}"
+runner=0
+case "$ci" in
+	[yY]|[yY][eE][sS]) runner=1 ;;
+esac
+
+if [ "$runner" -eq 0 ]; then
+	awk 'BEGIN{skip=0} /^[[:space:]]*forgejo-runner:/{skip=1} /^[^[:space:]]/ && skip==1{skip=0} { if(!skip) print }' docker-compose.yml > tmp && mv tmp docker-compose.yml
+	sed -i '/^[[:space:]]*runner-data:/d' docker-compose.yml
+	sed -i '/^volumes:/d' docker-compose.yml
+
+	[ -d "runner-data" ] && rm -rf runner-data
+	docker volume rm $(docker volume ls -q | grep 'runner-data') >/dev/null 2>&1 || true
+	echo "Runner removed"
 fi
 
 fetch_tag() {
@@ -82,12 +57,12 @@ update_image "codeberg.org/forgejo/forgejo" "$SERVER_TAG"
 
 docker compose up -d
 
-if [ "${RUNNER_WANTED:-0}" -eq 1 ]; then
-		echo "Waiting, registering runner..."
+if [ "$runner" -eq 1 ]; then
+	echo "Waiting, registering runner..."
 	sleep 5
 	if [ -f ../action_register.sh ]; then
-			sh ../action_register.sh || echo "action_register.sh failed to run"
+		sh ../action_register.sh || echo "action_register.sh failed"
 	else
-			echo "../action_register.sh not found; runner registration must be done manually"
+		echo "../action_register.sh not found"
 	fi
 fi
