@@ -4,6 +4,9 @@ cd forgejo-installation
 wget "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/install_docker.sh"
 wget "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/run_docker.sh"
 
+sed -i 's/\r$//' install_docker.sh
+sed -i 's/\r$//' run_docker.sh
+
 bash install_docker.sh
 
 prompt() {
