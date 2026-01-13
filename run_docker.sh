@@ -2,10 +2,7 @@
 set -e
 mkdir -p forgejo && cd forgejo
 
-if [ ! -f docker-compose.yml ]; then
-	echo "docker-compose.yml yok — nano açılıyor. Kaydet sonra script devam edecek."
-	nano docker-compose.yml
-fi
+wget https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/docker-compose.yml
 
 fetch_tag() {
 	api_url=$1
