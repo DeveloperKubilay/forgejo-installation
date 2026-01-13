@@ -1,0 +1,30 @@
+services:
+  server:
+    image: codeberg.org/forgejo/forgejo
+    container_name: forgejo
+    environment:
+      - TZ=Europe/Istanbul
+    restart: always
+    volumes:
+      - ./forgejo:/data
+    ports:
+      - '3000:3000'
+      - '222:22'
+
+  forgejo-runner:
+    image: data.forgejo.org/forgejo/runner
+    container_name: forgejo-runner
+    depends_on:
+      - server
+    environment:
+      - FORGEJO_INSTANCE_URL=http://server:3000
+      - FORGEJO_RUNNER_REGISTRATION_TOKEN=TOKEN_BURAYA
+      - FORGEJO_RUNNER_NAME=knk-runner
+    volumes:
+      - ./runner-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: /bin/sh -c "sleep 5; sleep infinity"
+    restart: unless-stopped
+
+volumes:
+  runner-data:
