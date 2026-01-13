@@ -29,13 +29,13 @@ prompt() {
   fi
   echo "$ans"
 }
-
-port=$(prompt "Which port do you want? (default 3000, press Enter to use default) " 3000)
-ci_choice=$(prompt "Install type? (server/runner/both, default both) " both)
-
-if [ "$ci_choice" = "both" ]; then ci_choice="y"; fi
-if [ "$ci_choice" = "server" ]; then ci_choice="n"; fi
-if [ "$ci_choice" = "runner" ]; then ci_choice="only"; fi
+ ci_choice=$(prompt "Install type? (server/runner/both, default both) " both)
+ case "$ci_choice" in
+   both) ci_choice=y;;
+   server) ci_choice=n;;
+   runner) ci_choice=only;;
+ esac
+ [ "$ci_choice" = "only" ] && port=3000 || port=$(prompt "Which port do you want? (default 3000, press Enter to use default) " 3000)
 
 bash run_docker.sh "$port" "$ci_choice"
 
