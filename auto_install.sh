@@ -58,7 +58,7 @@ Public URL: http://$ip:$port/user/settings/actions/runners
 
 The registration script will run now.
 EOF
-  bash action_register.sh
+  bash action_register.sh </dev/tty >/dev/tty
 fi
 
 cd ..
