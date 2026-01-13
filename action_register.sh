@@ -1,4 +1,5 @@
 ls
+pwd
 sleep 5
 sudo chown -R 1001:1001 runner-data
 docker exec -it forgejo-runner /bin/forgejo-runner register
