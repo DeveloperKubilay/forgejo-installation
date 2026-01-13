@@ -23,11 +23,20 @@ CI_ARG="$2"
 CI_ARG="${CI_ARG:-n}"
 CI_ARG_LOWER=$(echo "$CI_ARG" | tr '[:upper:]' '[:lower:]')
 if [ "$CI_ARG_LOWER" != "y" ] && [ "$CI_ARG_LOWER" != "yes" ]; then
-	# remove the forgejo-runner service block from docker-compose.yml
-	awk 'BEGIN{skip=0} /^  forgejo-runner:/{skip=1} /^volumes:/{if(skip){skip=0}} {if(!skip) print}' docker-compose.yml > docker-compose.tmp && mv docker-compose.tmp docker-compose.yml
-	echo "Runner service removed from docker-compose.yml"
-	# remove trailing top-level volumes: block (runner-data) if present
-	awk 'BEGIN{skip=0} /^volumes:$/ {skip=1; next} { if(skip){ if($0 ~ /^[^[:space:]]/){ skip=0; print } } else print }' docker-compose.yml > docker-compose.tmp && mv docker-compose.tmp docker-compose.yml || true
+		# remove the forgejo-runner service block from docker-compose.yml
+		awk 'BEGIN{skip=0} /^[[:space:]]*forgejo-runner:/{skip=1} /^[^[:space:]]/ && skip==1{skip=0} { if(!skip) print }' docker-compose.yml > docker-compose.tmp && mv docker-compose.tmp docker-compose.yml || true
+		echo "Runner service removed from docker-compose.yml"
+		# remove runner-data volume entry and the "volumes:" header if it's the only entry
+		awk '{
+		 if($0 ~ /^volumes:$/){
+		   vol_line = $0
+		   if(getline){
+		     if($0 ~ /^[[:space:]]*runner-data:$/){ next }
+		     else{ print vol_line; print $0; next }
+		   } else { next }
+		 }
+		 print
+		}' docker-compose.yml > docker-compose.tmp && mv docker-compose.tmp docker-compose.yml || true
 	# remove local runner-data dir if created
 	if [ -d "runner-data" ]; then
 		rm -rf runner-data
