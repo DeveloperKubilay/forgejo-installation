@@ -1,15 +1,16 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-
+# Run remote script via curl/wget without saving; prefer bash to avoid /bin/sh incompatibilities
 run_remote() {
   url="$1"
+  echo "-> Running: $url"
   if command -v curl >/dev/null 2>&1; then
     downloader="curl -fsSL $url"
   elif command -v wget >/dev/null 2>&1; then
     downloader="wget -qO- $url"
   else
-    echo "curl veya wget bulunamadı. Önce curl ya da wget kur." >&2
+    echo "curl or wget not found; install one first." >&2
     return 1
   fi
 
@@ -23,7 +24,10 @@ run_remote() {
 run_remote "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/install_docker.sh"
 run_remote "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/run_docker.sh"
 
-echo "Hepsi bitti."
-echo "Tarayıcında http://localhost:3000 adresine git ve Forgejo kurulumunu tamamla.\n"
-echo "Docker'i çalıştırmak istersen komut: docker compose up -d"
-echo "Docker konteynerlerini durdurmak istersen komut: docker compose down"
+cat <<'EOF'
+Done.
+Open http://localhost:3000 in your browser and finish Forgejo setup.
+Commands:
+  docker compose up -d    # start
+  docker compose down     # stop
+EOF
