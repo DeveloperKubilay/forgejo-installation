@@ -4,7 +4,7 @@ cd forgejo-installation
 wget "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/install_docker.sh"
 wget "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/run_docker.sh"
 
-sh install_docker.sh
+bash install_docker.sh
 
 prompt() {
   msg="$1"
@@ -28,7 +28,7 @@ prompt() {
 port=$(prompt "Which port do you want? (default 3000, press Enter to use default) " 3000)
 ci_choice=$(prompt "Install Actions CI/Runner? (y/n, default n) " n)
 
-sh run_docker.sh "$port" "$ci_choice"
+bash run_docker.sh "$port" "$ci_choice"
 
 cd ..
 rm -rf forgejo-installation
