@@ -13,10 +13,3 @@ jobs:
 
       - name: Get node version
         run: node --version > version.txt
-
-      - name: Upload version file
-        uses: actions/upload-artifact@v3
-        with:
-          name: version
-          path: version.txt
-          retention-days: 7
