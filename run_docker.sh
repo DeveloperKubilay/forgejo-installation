@@ -4,6 +4,33 @@ cd .. && mkdir -p forgejo && cd forgejo
 
 wget https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/docker-compose.yml
 
+# Allow port override via arg or env var
+PORT_ARG="$1"
+if [ -n "$PORT_ARG" ]; then
+	PORT="$PORT_ARG"
+fi
+PORT="${PORT:-3000}"
+if ! echo "$PORT" | grep -Eq '^[0-9]+$'; then
+	PORT=3000
+fi
+if [ "$PORT" != "3000" ]; then
+	sed -i -E "s/3000:3000/${PORT}:3000/g" docker-compose.yml || true
+	echo "Host HTTP port set to: $PORT"
+fi
+
+# CI/Actions choice: second arg (y/n)
+CI_ARG="$2"
+CI_ARG="${CI_ARG:-n}"
+CI_ARG_LOWER=$(echo "$CI_ARG" | tr '[:upper:]' '[:lower:]')
+if [ "$CI_ARG_LOWER" != "y" ] && [ "$CI_ARG_LOWER" != "yes" ]; then
+	# remove the forgejo-runner service block from docker-compose.yml
+	awk 'BEGIN{skip=0} /^  forgejo-runner:/{skip=1} /^volumes:/{if(skip){skip=0}} {if(!skip) print}' docker-compose.yml > docker-compose.tmp && mv docker-compose.tmp docker-compose.yml
+	echo "Runner service removed from docker-compose.yml"
+	RUNNER_WANTED=0
+else
+	RUNNER_WANTED=1
+fi
+
 fetch_tag() {
 	api_url=$1
 	if command -v jq >/dev/null 2>&1; then
@@ -18,9 +45,9 @@ update_image() {
 	tag=$2
 	if [ -n "$tag" ]; then
 		sed -i -E "s#(image:[[:space:]]*$image_prefix)(:[^[:space:]]*)?#\\1:$tag#g" docker-compose.yml
-		echo "Güncellendi: $image_prefix -> :$tag"
+		echo "Updated: $image_prefix -> :$tag"
 	else
-		echo "Tag bulunamadı: $image_prefix" >&2
+		echo "Tag not found: $image_prefix" >&2
 	fi
 }
 
@@ -31,3 +58,13 @@ SERVER_TAG=$(fetch_tag "https://codeberg.org/api/v1/repos/forgejo/forgejo/releas
 update_image "codeberg.org/forgejo/forgejo" "$SERVER_TAG"
 
 docker compose up -d
+
+if [ "${RUNNER_WANTED:-0}" -eq 1 ]; then
+		echo "Waiting, registering runner..."
+	sleep 5
+	if [ -f ../action_register.sh ]; then
+			sh ../action_register.sh || echo "action_register.sh failed to run"
+	else
+			echo "../action_register.sh not found; runner registration must be done manually"
+	fi
+fi

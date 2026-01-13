@@ -2,7 +2,7 @@
 set -e
 
 if command -v docker >/dev/null 2>&1; then
-	echo "Docker zaten yüklü. Sürümler:";
+	echo "Docker is already installed. Versions:";
 	docker --version || true
 	docker compose version || true
 	exit 0
