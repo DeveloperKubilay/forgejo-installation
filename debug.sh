@@ -1,3 +1,4 @@
+cd ..
 docker system prune -a --volumes -f
 docker stop $(docker ps -aq)
 docker rm $(docker ps -aq)
