@@ -1,28 +1,14 @@
-#!/usr/bin/env bash
-set -euo pipefail
+mkdir forgejo-installation
+cd forgejo-installation
 
-# Run remote script via curl/wget without saving; prefer bash to avoid /bin/sh incompatibilities
-run_remote() {
-  url="$1"
-  echo "-> Running: $url"
-  if command -v curl >/dev/null 2>&1; then
-    downloader="curl -fsSL $url"
-  elif command -v wget >/dev/null 2>&1; then
-    downloader="wget -qO- $url"
-  else
-    echo "curl or wget not found; install one first." >&2
-    return 1
-  fi
+wget "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/install_docker.sh"
+wget "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/run_docker.sh"
 
-  if command -v bash >/dev/null 2>&1; then
-    eval "$downloader" | bash -s --
-  else
-    eval "$downloader" | sh -s --
-  fi
-}
+sh install_docker.sh
+sh run_docker.sh
 
-run_remote "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/install_docker.sh"
-run_remote "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/run_docker.sh"
+cd ..
+rm -rf forgejo-installation
 
 cat <<'EOF'
 Done.
