@@ -15,6 +15,7 @@ services:
     container_name: forgejo-runner
     depends_on:
       - server
+    user: "1001:1001"
     volumes:
       - ./runner-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
