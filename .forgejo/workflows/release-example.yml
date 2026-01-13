@@ -1,0 +1,31 @@
+name: Test upload version
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: docker
+    container:
+      image: node:20-bookworm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get node version
+        run: node --version > version.txt
+
+      - name: Upload version file
+        uses: actions/upload-artifact@v3
+        with:
+          name: version
+          path: version.txt
+          retention-days: 7
+
+      - name: Upload version.txt to Forgejo Release
+        uses: ./.forgejo/actions/forgejo-release
+        with:
+          forgejo_url: ${{ secrets.FORGEJO_URL }}
+          token: ${{ secrets.FORGEJO_TOKEN }}
+          tag_file: version.txt
+          asset_path: version.txt
+          asset_name: version.txt
