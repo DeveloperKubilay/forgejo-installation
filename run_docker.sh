@@ -14,10 +14,20 @@ fi
 
 # CI/Runner selection
 ci="${2:-n}"
+server=1
 runner=0
+
 case "$ci" in
 	[yY]|[yY][eE][sS]) runner=1 ;;
+	"only") server=0; runner=1 ;;
 esac
+
+if [ "$server" -eq 0 ]; then
+	awk 'BEGIN{skip=0} /^[[:space:]]*server:/{skip=1} /^[[:space:]]*forgejo-runner:/{skip=0} { if(!skip) print }' docker-compose.yml > tmp && mv tmp docker-compose.yml
+	sed -i '/depends_on:/d' docker-compose.yml
+	sed -i '/- server/d' docker-compose.yml
+	echo "Server removed (Runner Only Mode)"
+fi
 
 if [ "$runner" -eq 0 ]; then
 	awk 'BEGIN{skip=0} /^[[:space:]]*forgejo-runner:/{skip=1} /^[^[:space:]]/ && skip==1{skip=0} { if(!skip) print }' docker-compose.yml > tmp && mv tmp docker-compose.yml
