@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Get node version
-        run: node --version > version.txt
+        run: echo naber > version.txt
 
       - name: Upload version file
         uses: actions/upload-artifact@v3
@@ -26,6 +26,6 @@ jobs:
         with:
           forgejo_url: ${{ secrets.FORGEJO_URL }}
           token: ${{ secrets.FORGEJO_TOKEN }}
-          tag_file: version.txt
+          tag: 1.12.2
           asset_path: version.txt
-          asset_name: version.txt
+          asset_name: Publicversion.txt
