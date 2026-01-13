@@ -9,18 +9,28 @@ services:
       - ./forgejo:/data
     ports:
       - '3000:3000'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
 
   forgejo-runner:
     image: data.forgejo.org/forgejo/runner
     container_name: forgejo-runner
     depends_on:
       - server
-    user: "1001:1001"
+    user: "root:root"
     volumes:
       - ./runner-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     command: /bin/sh -c "sleep 5; sleep infinity"
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
 
 volumes:
   runner-data:
