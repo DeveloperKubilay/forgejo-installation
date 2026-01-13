@@ -1,6 +1,4 @@
 #!/bin/sh
-set -e
-
 
 run_remote() {
   url="$1"
