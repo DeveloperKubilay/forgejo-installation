@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 
 if command -v docker >/dev/null 2>&1; then
 	echo "Docker is already installed. Versions:";
