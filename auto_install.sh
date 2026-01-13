@@ -1,14 +1,22 @@
-#!/bin/sh
+#!/bin/bash
+set -e
+
 
 run_remote() {
   url="$1"
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$url" | sh -s --
+    downloader="curl -fsSL $url"
   elif command -v wget >/dev/null 2>&1; then
-    wget -qO- "$url" | sh -s --
+    downloader="wget -qO- $url"
   else
     echo "curl veya wget bulunamadı. Önce curl ya da wget kur." >&2
     return 1
+  fi
+
+  if command -v bash >/dev/null 2>&1; then
+    eval "$downloader" | bash -s --
+  else
+    eval "$downloader" | sh -s --
   fi
 }
 
