@@ -49,9 +49,16 @@ Commands:
 EOF
 
 if [ "$ci_choice" = "y" ] || [ "$ci_choice" = "Y" ] || [ "$ci_choice" = "yes" ]; then
-    echo ""
-    echo "Starting Runner Register process..."
-    bash action_register.sh
+  echo ""
+  echo "Starting runner registration..."
+  cat <<EOF
+You can obtain the registration token from:
+Local URL: http://$localip:$port/user/settings/actions/runners
+Public URL: http://$ip:$port/user/settings/actions/runners
+
+The registration script will run now.
+EOF
+  bash action_register.sh
 fi
 
 cd ..
