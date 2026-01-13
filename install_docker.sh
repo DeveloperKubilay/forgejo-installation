@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 if command -v docker >/dev/null 2>&1; then
 	echo "Docker zaten yüklü. Sürümler:";
@@ -27,5 +28,4 @@ sudo usermod -aG docker $USER
 newgrp docker || true
 
 docker --version
-
 docker compose version

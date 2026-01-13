@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 mkdir -p forgejo && cd forgejo
 
 wget https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/docker-compose.yml
