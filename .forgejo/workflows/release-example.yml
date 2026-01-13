@@ -14,13 +14,6 @@ jobs:
       - name: Get node version
         run: echo naber > version.txt
 
-      - name: Upload version file
-        uses: actions/upload-artifact@v3
-        with:
-          name: version
-          path: version.txt
-          retention-days: 7
-
       - name: Upload version.txt to Forgejo Release
         uses: ./.forgejo/actions/forgejo-release
         with:
