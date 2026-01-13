@@ -56,13 +56,3 @@ SERVER_TAG=$(fetch_tag "https://codeberg.org/api/v1/repos/forgejo/forgejo/releas
 update_image "codeberg.org/forgejo/forgejo" "$SERVER_TAG"
 
 docker compose up -d
-
-if [ "$runner" -eq 1 ]; then
-	echo "Waiting, registering runner..."
-	sleep 5
-	if [ -f ../action_register.sh ]; then
-		sh ../action_register.sh || echo "action_register.sh failed"
-	else
-		echo "../action_register.sh not found"
-	fi
-fi

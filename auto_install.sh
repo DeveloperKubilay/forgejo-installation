@@ -3,9 +3,11 @@ cd forgejo-installation
 
 wget "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/install_docker.sh"
 wget "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/run_docker.sh"
+wget "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/action_register.sh"
 
 sed -i 's/\r$//' install_docker.sh
 sed -i 's/\r$//' run_docker.sh
+sed -i 's/\r$//' action_register.sh
 
 bash install_docker.sh
 
@@ -33,9 +35,6 @@ ci_choice=$(prompt "Install Actions CI/Runner? (y/n, default n) " n)
 
 bash run_docker.sh "$port" "$ci_choice"
 
-cd ..
-rm -rf forgejo-installation
-
 localip=$(hostname -I 2>/dev/null | awk '{print $1}')
 ip=$(curl -fsS https://ifconfig.me 2>/dev/null || echo "")
 
@@ -48,3 +47,14 @@ Commands:
   docker compose up -d    # start
   docker compose down     # stop
 EOF
+
+if [ "$ci_choice" = "y" ] || [ "$ci_choice" = "Y" ] || [ "$ci_choice" = "yes" ]; then
+    echo ""
+    echo "Starting Runner Register process..."
+    bash action_register.sh
+fi
+
+cd ..
+rm -rf forgejo-installation
+
+echo "Installation script finished."
