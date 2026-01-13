@@ -1,4 +1,4 @@
-mkdir forgejo-installation
+mkdir -p forgejo-installation
 cd forgejo-installation
 
 wget "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/install_docker.sh"
@@ -6,17 +6,27 @@ wget "https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/re
 
 sh install_docker.sh
 
-echo "Which port do you want? (default 3000, press Enter to use default)"
-read port
-if [ -z "$port" ]; then
-  port=3000
-fi
+prompt() {
+  msg="$1"
+  def="$2"
+  if [ -t 0 ]; then
+    printf "%s" "$msg"
+    read ans
+  elif [ -e /dev/tty ]; then
+    printf "%s" "$msg" > /dev/tty
+    read ans < /dev/tty
+  else
+    echo "No interactive terminal available. Run the script interactively." >&2
+    exit 1
+  fi
+  if [ -z "$ans" ]; then
+    ans="$def"
+  fi
+  echo "$ans"
+}
 
-echo "Install Actions CI/Runner? (y/n, default n)"
-read ci_choice
-if [ -z "$ci_choice" ]; then
-  ci_choice="n"
-fi
+port=$(prompt "Which port do you want? (default 3000, press Enter to use default) " 3000)
+ci_choice=$(prompt "Install Actions CI/Runner? (y/n, default n) " n)
 
 sh run_docker.sh "$port" "$ci_choice"
 
