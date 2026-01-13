@@ -24,7 +24,7 @@ services:
     volumes:
       - ./runner-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
-    command: /bin/sh -c "sleep 5; sleep infinity"
+    command: /bin/sh -c "forgejo-runner daemon || sleep infinity"
     restart: unless-stopped
     logging:
       driver: "json-file"
