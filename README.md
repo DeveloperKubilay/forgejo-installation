@@ -4,4 +4,5 @@ Automatic download
 curl -fsSL https://raw.githubusercontent.com/DeveloperKubilay/forgejo-installation/refs/heads/main/auto_install.sh | bash
 ```
 
-Review the files and easily set up your own Git server.
+Easily set up your own Git server.
+Actions supported
