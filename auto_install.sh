@@ -31,7 +31,7 @@ prompt() {
 }
 
 port=$(prompt "Which port do you want? (default 3000, press Enter to use default) " 3000)
-ci_choice=$(prompt "Install Actions CI/Runner? (y/n, default n) " n)
+ci_choice=$(prompt "Install Actions CI/Runner? (y/n, default y) " y)
 
 bash run_docker.sh "$port" "$ci_choice"
 
