@@ -9,7 +9,6 @@ services:
       - ./forgejo:/data
     ports:
       - '3000:3000'
-      - '222:22'
 
   forgejo-runner:
     image: data.forgejo.org/forgejo/runner
