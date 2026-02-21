@@ -6,7 +6,7 @@ if command -v docker >/dev/null 2>&1; then
 	docker compose version || true
 	exit 0
 fi
-
+#curl -fsSL https://get.docker.com | sh
 sudo apt update
 sudo apt install -y ca-certificates curl gnupg lsb-release
 
@@ -27,4 +27,5 @@ sudo usermod -aG docker $USER
 newgrp docker || true
 
 docker --version
+
 docker compose version
