@@ -1,0 +1,139 @@
+name: AI Konu oluştur
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_msg:
+        description: "İstediğin promtu gir"
+        required: true
+        default: "index.js oluştururmusun knka expressjs ile bi örnek kodla basit"
+        type: string
+      aiProvider:
+        description: "AI saglayicisi sec (claude veya codex)"
+        required: false
+        default: "claude"
+        type: string
+      aiModel:
+        description: "AI modeli sec"
+        required: false
+        default: "gemini-3.1-pro-high"
+        type: string
+      thinking:
+        description: "Claude thinking modu"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  build:
+    runs-on: main
+    container: node:20-bookworm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ripgrep kur
+        run: apt-get update && apt-get install -y git ripgrep jq grep
+
+      - name: Codex kur
+        if: ${{ inputs.aiProvider == 'codex' }}
+        run: npm i -g @openai/codex
+
+      - name: Claude kur
+        if: ${{ inputs.aiProvider == 'claude' }}
+        run: npm i -g @anthropic-ai/claude-code
+
+      - name: AI kullanicisi hazirla
+        shell: bash
+        run: |
+          id -u aiagent >/dev/null 2>&1 || useradd -m -s /bin/bash aiagent
+          chown -R aiagent:aiagent "$GITHUB_WORKSPACE"
+          install -d -o aiagent -g aiagent /home/aiagent/.claude /home/aiagent/.codex
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          su -m -s /bin/bash aiagent -c '
+            export HOME=/home/aiagent
+            git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          '
+
+      - name: PR ayarlarini hazirla
+        id: prepare
+        shell: bash
+        env:
+          INPUT_PROVIDER: ${{ inputs.aiProvider }}
+          INPUT_MODEL: ${{ inputs.aiModel }}
+          INPUT_THINKING: ${{ inputs.thinking }}
+        run: |
+          MODEL="$INPUT_MODEL"
+          if [[ -z "$MODEL" ]]; then
+            if [[ "$INPUT_PROVIDER" == "claude" ]]; then
+              MODEL="claude-sonnet-4-6"
+            else
+              MODEL="gpt-5.4"
+            fi
+          fi
+
+          SAFE_MODEL=$(printf '%s' "$MODEL" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9.-]+/-/g; s/-+/-/g; s/\.+/./g; s/^[.-]+//; s/[.-]+$//')
+          [[ -n "$SAFE_MODEL" ]] || SAFE_MODEL="ai"
+          BRANCH="$SAFE_MODEL-$((100000 + RANDOM % 900000))"
+          THINKING="$INPUT_THINKING"
+          if [[ "$INPUT_PROVIDER" == "codex" ]]; then
+            THINKING="true"
+          fi
+          METADATA="branch: $BRANCH | system: $INPUT_PROVIDER | thinking: $THINKING"
+
+          echo "model=$MODEL" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "thinking=$THINKING" >> $GITHUB_OUTPUT
+          echo "metadata=$METADATA" >> $GITHUB_OUTPUT
+
+      - name: AI calistir
+        shell: bash
+        run: |
+          su -m -s /bin/bash aiagent -c '
+            export HOME=/home/aiagent
+            cd "$GITHUB_WORKSPACE"
+            node .forgejo/ai/index.js
+          '
+        env:
+          LC_ALL: C.UTF-8
+          LANG: C.UTF-8
+          COMMIT_MSG: ${{ inputs.commit_msg }}
+          AI_PROVIDER: ${{ inputs.aiProvider }}
+          AI_MODEL: ${{ steps.prepare.outputs.model }}
+          AI_THINKING: ${{ steps.prepare.outputs.thinking }}
+          CODEX_TOKEN: ${{ secrets.CODEX_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+
+      - name: PR govdesini hazirla
+        id: body
+        shell: bash
+        env:
+          METADATA: ${{ steps.prepare.outputs.metadata }}
+        run: |
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          cat .forgejo/ai/log.txt >> $GITHUB_OUTPUT
+          printf '\n\n%s\n' "$METADATA" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: loglar
+          path: |
+            .forgejo/ai/flog.txt
+            .forgejo/ai/log.txt
+          retention-days: 7
+
+      - name: PR ac
+        id: pr
+        uses:  ./.forgejo/actions/auto-pr
+        with:
+          token: ${{ secrets.FORGEJO_TOKEN }}
+          base: 'main'
+          add-paths: '.'
+          commit-message: "sa beyler"
+          pr-branch: ${{ steps.prepare.outputs.branch }}
+          pr-title: ${{ inputs.commit_msg }}
+          pr-body: ${{ steps.body.outputs.content }}

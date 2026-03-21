@@ -1,0 +1,40 @@
+name: PR Yorum Yanıtla
+description: PR yorumuna API üzerinden yanıt verir
+
+inputs:
+  token:
+    required: true
+  body-file:
+    required: true
+    description: Yorum iceriginin bulundugu dosya yolu
+  server_url:
+    required: true
+  repository:
+    required: true
+  issue_number:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        TOKEN: ${{ inputs.token }}
+        SERVER_URL: ${{ inputs.server_url }}
+        REPOSITORY: ${{ inputs.repository }}
+        ISSUE_NUMBER: ${{ inputs.issue_number }}
+        BODY_FILE: ${{ inputs.body-file }}
+      run: |
+        node -e "
+          const fs = require('fs');
+          let body;
+          try { body = fs.readFileSync(process.env.BODY_FILE, 'utf8').trim(); }
+          catch(e) { body = 'AI yanit uretilemedi.'; }
+          if (!body) body = 'AI yanit uretilemedi.';
+          fs.writeFileSync('/tmp/comment.json', JSON.stringify({ body }));
+        "
+        curl -s -X POST \
+          -H "Authorization: token $TOKEN" \
+          -H "Content-Type: application/json" \
+          -d @/tmp/comment.json \
+          "$SERVER_URL/api/v1/repos/$REPOSITORY/issues/$ISSUE_NUMBER/comments"

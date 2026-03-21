@@ -1,0 +1,100 @@
+name: AI PR FIX
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  ai-fix:
+    if: |
+      github.event.issue.pull_request &&
+      (contains(github.event.comment.body, '@ai') || contains(github.event.comment.body, '@Patates') || contains(github.event.comment.body, '@codex') || contains(github.event.comment.body, '@claude')) &&
+      github.event.sender.login != 'Patates'
+    runs-on: main
+    container: node:20-bookworm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PR branch checkout
+        uses: ./.forgejo/actions/checkout-pr
+        with:
+          token: ${{ secrets.FORGEJO_TOKEN }}
+          pr-number: ${{ github.event.issue.number }}
+
+      - name: Prompt parse
+        id: parse
+        uses: ./.forgejo/actions/parse-pr-comment
+        with:
+          body: ${{ github.event.comment.body }}
+          comment_id: ${{ github.event.comment.id }}
+          token: ${{ secrets.FORGEJO_TOKEN }}
+          server_url: ${{ github.server_url }}
+          repository: ${{ github.repository }}
+          issue_number: ${{ github.event.issue.number }}
+
+      - name: Ripgrep kur
+        run: apt-get update && apt-get install -y git ripgrep jq grep
+
+      - name: Codex kur
+        if: ${{ steps.parse.outputs.provider == 'codex' }}
+        run: npm i -g @openai/codex
+
+      - name: Claude kur
+        if: ${{ steps.parse.outputs.provider == 'claude' }}
+        run: npm i -g @anthropic-ai/claude-code
+
+      - name: AI kullanicisi hazirla
+        shell: bash
+        run: |
+          id -u aiagent >/dev/null 2>&1 || useradd -m -s /bin/bash aiagent
+          chown -R aiagent:aiagent "$GITHUB_WORKSPACE"
+          install -d -o aiagent -g aiagent /home/aiagent/.claude /home/aiagent/.codex
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          su -m -s /bin/bash aiagent -c '
+            export HOME=/home/aiagent
+            git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          '
+
+      - name: AI calistir
+        shell: bash
+        run: |
+          su -m -s /bin/bash aiagent -c '
+            export HOME=/home/aiagent
+            cd "$GITHUB_WORKSPACE"
+            node .forgejo/ai/index.js
+          '
+        env:
+          LC_ALL: C.UTF-8
+          LANG: C.UTF-8
+          COMMIT_MSG: ${{ steps.parse.outputs.ai_prompt }}
+          AI_PROVIDER: ${{ steps.parse.outputs.provider }}
+          AI_MODEL: ${{ steps.parse.outputs.model }}
+          AI_THINKING: ${{ steps.parse.outputs.thinking }}
+          CODEX_TOKEN: ${{ secrets.CODEX_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: pr-fix-loglar
+          path: |
+            ${{ github.workspace }}/.forgejo/ai/flog.txt
+            ${{ github.workspace }}/.forgejo/ai/log.txt
+          retention-days: 7
+
+      - name: PR yorumu yaz
+        uses: ./.forgejo/actions/pr-comment-reply
+        with:
+          token: ${{ secrets.FORGEJO_TOKEN }}
+          body-file: ${{ github.workspace }}/.forgejo/ai/log.txt
+          server_url: ${{ github.server_url }}
+          repository: ${{ github.repository }}
+          issue_number: ${{ github.event.issue.number }}
+
+      - name: Degisiklikleri push et
+        uses: ./.forgejo/actions/edit-pr
+        with:
+          token: ${{ secrets.FORGEJO_TOKEN }}
+          pr-number: ${{ github.event.issue.number }}
+          content-file: ${{ github.workspace }}/.forgejo/ai/log.txt
+          commit-message: "ai fix: ${{ steps.parse.outputs.prompt }}"

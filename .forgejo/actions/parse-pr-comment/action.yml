@@ -1,0 +1,159 @@
+name: "Parse PR Comment"
+description: "PR yorumundan prompt ve AI ayarlarini cikarir"
+
+outputs:
+  ai_prompt:
+    description: 'Gecmis sohbeti de iceren AI promptu'
+    value: ${{ steps.parse.outputs.ai_prompt }}
+  model:
+    description: 'Metadata veya fallback model'
+    value: ${{ steps.parse.outputs.model }}
+  provider:
+    description: 'Secilen AI saglayicisi'
+    value: ${{ steps.parse.outputs.provider }}
+  thinking:
+    description: 'Thinking durumu'
+    value: ${{ steps.parse.outputs.thinking }}
+  prompt:
+    description: 'Mention temizlenmis yorum'
+    value: ${{ steps.parse.outputs.prompt }}
+
+inputs:
+  body:
+    required: true
+  comment_id:
+    required: false
+    default: ''
+  token:
+    required: true
+  server_url:
+    required: true
+  repository:
+    required: true
+  issue_number:
+    required: true
+  bot_login:
+    required: false
+    default: 'Patates'
+  max_history:
+    required: false
+    default: '12'
+
+runs:
+  using: composite
+  steps:
+    - id: parse
+      shell: bash
+      env:
+        BODY: ${{ inputs.body }}
+        COMMENT_ID: ${{ inputs.comment_id }}
+        TOKEN: ${{ inputs.token }}
+        SERVER_URL: ${{ inputs.server_url }}
+        REPOSITORY: ${{ inputs.repository }}
+        ISSUE_NUMBER: ${{ inputs.issue_number }}
+        BOT_LOGIN: ${{ inputs.bot_login }}
+        MAX_HISTORY: ${{ inputs.max_history }}
+      run: |
+        AI_PROVIDER="codex"
+        if echo "$BODY" | grep -Eq '@claude([[:space:]]|$)'; then
+          AI_PROVIDER="claude"
+          PROMPT=$(echo "$BODY" | sed -r 's/.*@claude[[:space:]]*//')
+        elif echo "$BODY" | grep -Eq '@codex([[:space:]]|$)'; then
+          PROMPT=$(echo "$BODY" | sed -r 's/.*@codex[[:space:]]*//')
+        else
+          PROMPT=$(echo "$BODY" | sed -r 's/.*@(ai|Patates)[[:space:]]*//')
+        fi
+
+        PULL_FILE="/tmp/parse-pr-pull.json"
+        COMMENTS_FILE="/tmp/parse-pr-comments.json"
+        curl -fsSL \
+          -H "Authorization: token $TOKEN" \
+          "$SERVER_URL/api/v1/repos/$REPOSITORY/pulls/$ISSUE_NUMBER" > "$PULL_FILE"
+        curl -fsSL \
+          -H "Authorization: token $TOKEN" \
+          "$SERVER_URL/api/v1/repos/$REPOSITORY/issues/$ISSUE_NUMBER/comments" > "$COMMENTS_FILE"
+
+        METADATA=$(node -e "
+          const fs = require('fs');
+          const re = /branch:\s*([^|\n]+?)\s*\|\s*system:\s*(claude|codex)\s*\|\s*thinking:\s*(true|false)/i;
+          const match = String(JSON.parse(fs.readFileSync(process.argv[1], 'utf8')).body || '').match(re);
+          if (match) {
+            process.stdout.write(match[1].trim() + '\t' + match[2].toLowerCase() + '\t' + match[3].toLowerCase());
+          }
+        " "$PULL_FILE")
+
+        if [[ -z "$METADATA" ]]; then
+          METADATA=$(node -e "
+            const fs = require('fs');
+            const rows = JSON.parse(fs.readFileSync(process.argv[1], 'utf8')).sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+            const re = /branch:\s*([^|\n]+?)\s*\|\s*system:\s*(claude|codex)\s*\|\s*thinking:\s*(true|false)/i;
+            let output = '';
+            for (const row of rows) {
+              const match = String(row.body || '').match(re);
+              if (match) {
+                output = match[1].trim() + '\t' + match[2].toLowerCase() + '\t' + match[3].toLowerCase();
+                break;
+              }
+            }
+            process.stdout.write(output);
+          " "$COMMENTS_FILE")
+        fi
+
+        if [[ -n "$METADATA" ]]; then
+          IFS=$'\t' read -r AI_BRANCH AI_PROVIDER AI_THINKING <<< "$METADATA"
+          AI_MODEL=$(printf '%s' "$AI_BRANCH" | sed -E 's/-[0-9]{6}$//')
+        elif [[ "$AI_PROVIDER" == "codex" ]]; then
+          AI_MODEL=""
+          AI_THINKING="true"
+        else
+          AI_MODEL=""
+          AI_THINKING="false"
+        fi
+
+        AI_PROMPT=$(CURRENT_PROMPT="$PROMPT" COMMENT_ID="$COMMENT_ID" BOT_LOGIN="$BOT_LOGIN" MAX_HISTORY="$MAX_HISTORY" node -e "
+          const fs = require('fs');
+          const pull = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+          const comments = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const prompt = String(process.env.CURRENT_PROMPT || '').trim();
+          const commentId = String(process.env.COMMENT_ID || '').trim();
+          const botLogin = String(process.env.BOT_LOGIN || 'Patates').trim().toLowerCase();
+          const maxHistory = Math.max(0, parseInt(process.env.MAX_HISTORY || '12', 10) || 12);
+          const metadataRe = /^branch:\s*[^|\n]+?\s*\|\s*system:\s*(claude|codex)\s*\|\s*thinking:\s*(true|false)\s*$/gim;
+          const clean = (text) => String(text || '').replace(/\r\n/g, '\n').replace(metadataRe, '').replace(/\n{3,}/g, '\n\n').trim();
+          const title = clean(pull.title);
+          const body = clean(pull.body);
+          const history = comments
+            .filter((row) => String(row.id || '') !== commentId)
+            .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))
+            .map((row) => ({
+              role: String(row.user?.login || '').toLowerCase() === botLogin ? 'assistant' : 'user',
+              text: clean(row.body),
+            }))
+            .filter((row) => row.text)
+            .slice(-maxHistory);
+          const parts = [];
+          if (title || body) {
+            parts.push('## Baglam');
+            if (title) parts.push('**PR Basligi:** ' + title);
+            if (body) parts.push('**PR Govdesi:**\\n' + body);
+          }
+          if (history.length) {
+            if (parts.length) parts.push('---');
+            parts.push('## Sohbet Gecmisi');
+            parts.push(history.map((row) => row.role === 'assistant' ? '**[assistant]**\\n' + row.text : '**[user]** ' + row.text).join('\\n\\n'));
+          }
+          if (parts.length) parts.push('---');
+          parts.push('## Guncel Istek');
+          parts.push(prompt);
+          process.stdout.write(parts.join('\\n\\n'));
+        " "$PULL_FILE" "$COMMENTS_FILE")
+
+        echo "ai_prompt<<EOF" >> $GITHUB_OUTPUT
+        printf "%s\n" "$AI_PROMPT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        echo "model=$AI_MODEL" >> $GITHUB_OUTPUT
+        echo "provider=$AI_PROVIDER" >> $GITHUB_OUTPUT
+        echo "thinking=$AI_THINKING" >> $GITHUB_OUTPUT
+        echo "prompt<<EOF" >> $GITHUB_OUTPUT
+        printf "%s\n" "$PROMPT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
